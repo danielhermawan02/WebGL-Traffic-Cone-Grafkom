@@ -1,4 +1,4 @@
-let cubeRotation = 0.0;
+let coneRotation = 0.0;
 
 main();
 
@@ -48,7 +48,10 @@ function main() {
         shaderProgram,
         "uProjectionMatrix"
       ),
-      modelViewMatrix: wgl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+      modelViewMatrix: wgl.getUniformLocation(
+        shaderProgram,
+        "uModelViewMatrix"
+      ),
     },
   };
 
@@ -70,61 +73,150 @@ function main() {
 }
 
 function initBuffers(wgl) {
+  // Define positions for the cone and its base
+  const positions = [
+    // Cone
+    0.0,
+    1.5,
+    0.0, // Apex of the cone
+    // Base circle (approximated with a hexagon for simplicity)
+    -1.0,
+    0.0,
+    -1.0,
+    1.0,
+    0.0,
+    -1.0,
+    1.0,
+    0.0,
+    1.0,
+    -1.0,
+    0.0,
+    1.0,
+
+    // Base of the cone
+    // Bottom face of the rectangular base
+    -1.5,
+    -0.1,
+    -1.5,
+    1.5,
+    -0.1,
+    -1.5,
+    1.5,
+    -0.1,
+    1.5,
+    -1.5,
+    -0.1,
+    1.5,
+
+    // Top face of the rectangular base
+    -1.5,
+    0.0,
+    -1.5,
+    1.5,
+    0.0,
+    -1.5,
+    1.5,
+    0.0,
+    1.5,
+    -1.5,
+    0.0,
+    1.5,
+  ];
+
+  const colors = [
+    // Cone colors
+    [1.0, 0.5, 0.0, 1.0], // Apex color (orange)
+    [1.0, 0.5, 0.0, 1.0], // Base colors
+    [1.0, 0.5, 0.0, 1.0],
+    [1.0, 0.5, 0.0, 1.0],
+    [1.0, 0.5, 0.0, 1.0],
+
+    // Base colors
+    [0.5, 0.5, 0.5, 1.0], // Dark grey for the base
+    [0.5, 0.5, 0.5, 1.0],
+    [0.5, 0.5, 0.5, 1.0],
+    [0.5, 0.5, 0.5, 1.0],
+  ].flat();
+
+  const indices = [
+    // Cone
+    0,
+    1,
+    2,
+    0,
+    2,
+    3,
+    0,
+    3,
+    4,
+    0,
+    4,
+    1,
+
+    // Base of cone (hexagon)
+    1,
+    2,
+    3,
+    3,
+    4,
+    1,
+
+    // Bottom face of the rectangular base
+    5,
+    6,
+    7,
+    5,
+    7,
+    8,
+
+    // Top face of the rectangular base
+    9,
+    10,
+    11,
+    9,
+    11,
+    12,
+
+    // Connecting sides of the base
+    5,
+    6,
+    10,
+    5,
+    10,
+    9,
+
+    6,
+    7,
+    11,
+    6,
+    11,
+    10,
+
+    7,
+    8,
+    12,
+    7,
+    12,
+    11,
+
+    8,
+    5,
+    9,
+    8,
+    9,
+    12,
+  ];
+
   const positionBuffer = wgl.createBuffer();
   wgl.bindBuffer(wgl.ARRAY_BUFFER, positionBuffer);
+  wgl.bufferData(wgl.ARRAY_BUFFER, new Float32Array(positions), wgl.STATIC_DRAW);
 
-  const baseRadius = 1.0;
-  const height = 2.0;
-  const segments = 32; // Number of segments for the circular base
-  const positions = [];
-
-  // Add the apex vertex
-  positions.push(0.0, height, 0.0); // Apex at (0, height, 0)
-
-  // Add vertices for the base
-  for (let i = 0; i <= segments; i++) {
-    const angle = (i * 2 * Math.PI) / segments;
-    const x = baseRadius * Math.cos(angle);
-    const z = baseRadius * Math.sin(angle);
-    positions.push(x, 0.0, z); // Base vertices at (x, 0, z)
-  }
-
-  wgl.bufferData(
-    wgl.ARRAY_BUFFER,
-    new Float32Array(positions),
-    wgl.STATIC_DRAW
-  );
-
-  // Define colors for the cone (alternating stripes for the sides)
   const colorBuffer = wgl.createBuffer();
   wgl.bindBuffer(wgl.ARRAY_BUFFER, colorBuffer);
+  wgl.bufferData(wgl.ARRAY_BUFFER, new Float32Array(colors), wgl.STATIC_DRAW);
 
-  const colors = [];
-  colors.push(1.0, 0.65, 0.0, 1.0); // Orange color for apex
-  for (let i = 0; i <= segments; i++) {
-    const isEven = i % 2 === 0;
-    if (isEven) {
-      colors.push(1.0, 0.65, 0.0, 1.0); // Orange
-    } else {
-      colors.push(1.0, 1.0, 1.0, 1.0); // White
-    }
-  }
-
-  wgl.bufferData(
-    wgl.ARRAY_BUFFER,
-    new Float32Array(colors),
-    wgl.STATIC_DRAW
-  );
-
-  // Define indices for the cone
   const indexBuffer = wgl.createBuffer();
   wgl.bindBuffer(wgl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-
-  const indices = [];
-  for (let i = 1; i <= segments; i++) {
-    indices.push(0, i, i + 1); // Triangles for the sides
-  }
-
   wgl.bufferData(
     wgl.ELEMENT_ARRAY_BUFFER,
     new Uint16Array(indices),
@@ -155,8 +247,9 @@ function drawScene(wgl, programInfo, buffers, deltaTime) {
   mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
 
   const modelViewMatrix = mat4.create();
-  mat4.translate(modelViewMatrix, modelViewMatrix, [0.0, -1.0, -6.0]);
-  mat4.rotate(modelViewMatrix, modelViewMatrix, cubeRotation, [0, 1, 0]);
+
+  mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -10]);
+  mat4.rotate(modelViewMatrix, modelViewMatrix, coneRotation, [0, 1, 0]);
 
   {
     const numComponents = 3;
@@ -195,6 +288,7 @@ function drawScene(wgl, programInfo, buffers, deltaTime) {
   }
 
   wgl.bindBuffer(wgl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+
   wgl.useProgram(programInfo.program);
 
   wgl.uniformMatrix4fv(
@@ -202,6 +296,7 @@ function drawScene(wgl, programInfo, buffers, deltaTime) {
     false,
     projectionMatrix
   );
+
   wgl.uniformMatrix4fv(
     programInfo.uniformLocations.modelViewMatrix,
     false,
@@ -209,13 +304,13 @@ function drawScene(wgl, programInfo, buffers, deltaTime) {
   );
 
   {
-    const vertexCount = 3 * 32; // 32 triangles
+    const vertexCount = 36;
     const type = wgl.UNSIGNED_SHORT;
     const offset = 0;
     wgl.drawElements(wgl.TRIANGLES, vertexCount, type, offset);
   }
 
-  cubeRotation += deltaTime;
+  coneRotation += deltaTime;
 }
 
 function initShaderProgram(wgl, vsSource, fsSource) {
@@ -223,6 +318,7 @@ function initShaderProgram(wgl, vsSource, fsSource) {
   const fragmentShader = loadShader(wgl, wgl.FRAGMENT_SHADER, fsSource);
 
   const shaderProgram = wgl.createProgram();
+
   wgl.attachShader(shaderProgram, vertexShader);
   wgl.attachShader(shaderProgram, fragmentShader);
   wgl.linkProgram(shaderProgram);
@@ -240,14 +336,18 @@ function initShaderProgram(wgl, vsSource, fsSource) {
 
 function loadShader(wgl, type, source) {
   const shader = wgl.createShader(type);
+
   wgl.shaderSource(shader, source);
+
   wgl.compileShader(shader);
 
   if (!wgl.getShaderParameter(shader, wgl.COMPILE_STATUS)) {
     alert(
       "An error occurred compiling the shaders: " + wgl.getShaderInfoLog(shader)
     );
+
     wgl.deleteShader(shader);
+
     return null;
   }
 
