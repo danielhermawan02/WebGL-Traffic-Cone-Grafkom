@@ -1,4 +1,4 @@
-let coneRotation = 0.0;
+let cylinderRotation = 0.0;
 
 main();
 
@@ -73,123 +73,90 @@ function main() {
 }
 
 function initBuffers(wgl) {
-  // Define positions for the cone and its base
-  const positions = [
-    // Cone
-    0.0,
-    2.5, // height
-    0.0, // Apex of the cone
-    
-    // Base circle (approximated with a hexagon for simplicity)
-    -1.0, 0.0, -1.0,
-    1.0, 0.0, -1.0,
-    1.0, 0.0, 1.0,
-    -1.0, 0.0, 1.0,
+  const positions = [];
+  const colors = [];
+  const indices = [];
 
-    // Base of the cone (bottom rectangle base)
-    -1.5, -0.1, -1.5,
-    1.5, -0.1, -1.5,
-    1.5, -0.1, 1.5,
-    -1.5, -0.1, 1.5,
+  const baseSize = 1.5;
+  const baseHeight = 0.5;
+  const cylinderHeight = 2.5;
+  const cylinderRadius = 0.5;
+  const segments = 32;
 
-    // Top face rectangle base
-    -1.5,
-    0.0,
-    -1.5,
-    1.5,
-    0.0,
-    -1.5,
-    1.5,
-    0.0,
-    1.5,
-    -1.5,
-    0.0,
-    1.5,
-  ];
+  // Rectangle base vertices
+  positions.push(
+    -baseSize, 0, -baseSize,
+    baseSize, 0, -baseSize,
+    baseSize, 0, baseSize,
+    -baseSize, 0, baseSize,
 
-  const colors = [
-    // Cone colors
-    [1.0, 0.5, 0.0, 1.0], // Apex color (orange)
-    [1.0, 0.5, 0.0, 1.0], // Base colors
-    [1.0, 0.5, 0.0, 1.0],
-    [1.0, 0.5, 0.0, 1.0],
-    [1.0, 0.5, 0.0, 1.0],
+    -baseSize, -baseHeight, -baseSize,
+    baseSize, -baseHeight, -baseSize,
+    baseSize, -baseHeight, baseSize,
+    -baseSize, -baseHeight, baseSize
+  );
 
-    // Base colors
-    [0.5, 0.5, 0.5, 1.0], // Dark grey
-    [0.5, 0.5, 0.5, 1.0],
-    [0.5, 0.5, 0.5, 1.0],
-    [0.5, 0.5, 0.5, 1.0],
-  ].flat();
+  // Rectangle base colors (white)
+  for (let i = 0; i < 8; i++) {
+    colors.push(1.0, 1.0, 1.0, 1.0); // White
+  }
 
-  const indices = [
-    // Cone
-    0,
-    1,
-    2,
-    0,
-    2,
-    3,
-    0,
-    3,
-    4,
-    0,
-    4,
-    1,
+  // Rectangle base indices
+  indices.push(
+    0, 1, 2, 0, 2, 3, // Top face
+    4, 5, 6, 4, 6, 7, // Bottom face
+    0, 1, 5, 0, 5, 4, // Sides
+    1, 2, 6, 1, 6, 5,
+    2, 3, 7, 2, 7, 6,
+    3, 0, 4, 3, 4, 7
+  );
 
-    // Base of cone (hexagon)
-    1,
-    2,
-    3,
-    3,
-    4,
-    1,
+  // Cylinder vertices
+  for (let i = 0; i <= segments; i++) {
+    const angle = (i * 2 * Math.PI) / segments;
+    const x = Math.cos(angle) * cylinderRadius;
+    const z = Math.sin(angle) * cylinderRadius;
 
-    // Bottom face of the rectangular base
-    5,
-    6,
-    7,
-    5,
-    7,
-    8,
+    // Top circle
+    positions.push(x, baseHeight + cylinderHeight, z);
+    colors.push(1.0, 0.5, 0.0, 1.0); // Orange
 
-    // Top face of the rectangular base
-    9,
-    10,
-    11,
-    9,
-    11,
-    12,
+    // Bottom circle
+    positions.push(x, baseHeight, z);
+    colors.push(1.0, 0.5, 0.0, 1.0); // Orange
+  }
 
-    // Connecting sides of the base
-    5,
-    6,
-    10,
-    5,
-    10,
-    9,
+  // Cylinder indices
+  for (let i = 0; i < segments; i++) {
+    const topStart = 8 + i * 2;
+    const bottomStart = topStart + 1;
+    const nextTop = topStart + 2;
+    const nextBottom = bottomStart + 2;
 
-    6,
-    7,
-    11,
-    6,
-    11,
-    10,
+    // Side triangles
+    indices.push(topStart, bottomStart, nextBottom);
+    indices.push(topStart, nextBottom, nextTop);
+  }
 
-    7,
-    8,
-    12,
-    7,
-    12,
-    11,
+  // Top and bottom circle faces
+  const topCenter = positions.length / 3;
+  positions.push(0, baseHeight + cylinderHeight, 0);
+  colors.push(1.0, 0.5, 0.0, 1.0);
 
-    8,
-    5,
-    9,
-    8,
-    9,
-    12,
-  ];
+  const bottomCenter = positions.length / 3;
+  positions.push(0, baseHeight, 0);
+  colors.push(1.0, 0.5, 0.0, 1.0);
+
+  for (let i = 0; i < segments; i++) {
+    const topStart = 8 + i * 2;
+    const bottomStart = topStart + 1;
+
+    // Top circle
+    indices.push(topStart, topStart + 2, topCenter);
+
+    // Bottom circle
+    indices.push(bottomStart, bottomCenter, bottomStart + 2);
+  }
 
   const positionBuffer = wgl.createBuffer();
   wgl.bindBuffer(wgl.ARRAY_BUFFER, positionBuffer);
@@ -211,6 +178,7 @@ function initBuffers(wgl) {
     position: positionBuffer,
     color: colorBuffer,
     indices: indexBuffer,
+    vertexCount: indices.length,
   };
 }
 
@@ -232,8 +200,8 @@ function drawScene(wgl, programInfo, buffers, deltaTime) {
 
   const modelViewMatrix = mat4.create();
 
-  mat4.translate(modelViewMatrix, modelViewMatrix, [0, 0, -10]);
-  mat4.rotate(modelViewMatrix, modelViewMatrix, coneRotation, [0, 1, 0]);
+  mat4.translate(modelViewMatrix, modelViewMatrix, [0, -1, -10]);
+  mat4.rotate(modelViewMatrix, modelViewMatrix, cylinderRotation, [0, 1, 0]);
 
   {
     const numComponents = 3;
@@ -287,14 +255,9 @@ function drawScene(wgl, programInfo, buffers, deltaTime) {
     modelViewMatrix
   );
 
-  {
-    const vertexCount = 36;
-    const type = wgl.UNSIGNED_SHORT;
-    const offset = 0;
-    wgl.drawElements(wgl.TRIANGLES, vertexCount, type, offset);
-  }
+  wgl.drawElements(wgl.TRIANGLES, buffers.vertexCount, wgl.UNSIGNED_SHORT, 0);
 
-  coneRotation += deltaTime;
+  cylinderRotation += deltaTime;
 }
 
 function initShaderProgram(wgl, vsSource, fsSource) {
